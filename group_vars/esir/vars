@@ -1,0 +1,28 @@
+---
+# user
+system_user: esir
+system_user_home: "/home/{{ system_user }}"
+
+# sevice
+service_name: "{{ system_user }}"
+log_path: "/var/log/{{ service_name }}"
+
+# git
+git_url: git@github.com:onaio/esir-dashboard.git
+git_branch: deploy
+codebase_path: "{{ system_user_home }}/app"
+versioned_path: "{{ codebase_path }}-versioned"
+checkout_path: "{{ versioned_path }}/{{ ansible_date_time['epoch'] }}"
+git_key: "git_key"
+
+enable_https: True
+
+# nginx settings
+client_max_body_size: 1M
+ssl_cert: "esir.crt"
+ssl_key: "esir.key"
+nginx_cert_path: "/etc/nginx/ssl/{{ ssl_cert }}"
+nginx_key_path: "/etc/nginx/ssl/{{ ssl_key }}"
+nginx_server_name: "socialreporting.go.ke"
+nginx_server_names: ["socialreporting.go.ke", "www.socialreporting.go.ke"]
+default_nginx_server_name: "socialreporting.go.ke"

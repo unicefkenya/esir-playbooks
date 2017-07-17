@@ -1,0 +1,85 @@
+---
+- name: Deploy eSIR
+  hosts: esir
+  become: True
+  gather_facts: True
+  tags:
+    - esir
+
+  tasks:
+
+    - name: Add System User
+      user:
+        name: "{{ system_user }}"
+        shell: /bin/bash
+        group: www-data
+        force: yes
+        append: yes
+        createhome: yes
+        home: "{{ system_user_home }}"
+
+    - name: Ensure Directory Present
+      file:
+        state: directory
+        path: "{{ item }}"
+        owner: "{{ system_user }}"
+        group: www-data
+      with_items:
+        - "{{ versioned_path }}"
+        - "{{ checkout_path }}"
+        - "{{ log_path }}"
+        - "{{ system_user_home }}/.ssh"
+
+    - name: Install Dependencies
+      apt:
+        pkg: "{{ item }}"
+        state: latest
+        update_cache: yes
+        cache_valid_time: 600
+      with_items:
+        - build-essential
+        - git
+        - nginx
+
+    - name: Copy git key
+      copy:
+        src: "files/{{ item }}"
+        dest: "{{ system_user_home }}/.ssh/{{ item }}"
+        mode: 0600
+        owner: "{{ system_user }}"
+      with_items:
+        - "{{ git_key }}"
+
+    - name: github ssh config
+      ssh_config:
+        host: github.com
+        identity_file: "{{ item }}"
+        state: present
+      with_items:
+        - "{{ system_user_home }}/.ssh/{{ git_key }}"
+
+    - name: Git clone esir dashboard
+      git:
+        accept_hostkey: "yes"
+        repo: "{{ git_url }}"
+        dest: "{{ checkout_path }}"
+        version: "{{ git_branch }}"
+        key_file: "{{ system_user_home }}/.ssh/{{ git_key }}"
+
+    - name: Link latest version to app
+      file:
+        state: link
+        src: "{{ checkout_path }}/dist"
+        path: "{{ codebase_path }}"
+        owner: "{{ system_user }}"
+        group: www-data
+
+    - include: ../tasks/nginx.yaml cfg_file=esir_dashboard
+
+    - name: (re-)start nginx
+      service:
+        name: "{{ item }}"
+        state: restarted
+        enabled: yes
+      with_items:
+        - nginx

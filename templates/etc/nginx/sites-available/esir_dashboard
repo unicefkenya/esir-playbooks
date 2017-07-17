@@ -1,0 +1,40 @@
+server {
+    server_name  www.{{ nginx_server_name }};
+    rewrite ^(.*) $scheme://{{ nginx_server_name }}$1 permanent;
+}
+
+server {
+    # ports
+    listen 80;
+    listen [::]:80;
+
+    # server block/virtual host name
+    server_name {{ nginx_server_name }};
+
+    ### log files ###
+    access_log    {{ log_path }}/{{ nginx_server_name }}-access.log;
+    error_log     {{ log_path }}/{{ nginx_server_name }}-error.log;
+
+    # static files
+    location /  {
+        root {{ codebase_path }};
+    }
+}
+
+server {
+    listen 443;
+    listen [::]:443;
+
+    # server block/virtual host name
+    server_name {{ nginx_server_name }};
+
+    include /etc/nginx/secure_ssl.conf;
+
+    # entity size
+    client_max_body_size {{ client_max_body_size }};
+
+    # static files
+    location /  {
+        root {{ codebase_path }};
+    }
+}
