@@ -1,0 +1,67 @@
+---
+- name: Install collectd
+  apt:
+    pkg: "{{ item }}"
+    state: latest
+    update_cache: yes
+    cache_valid_time: 600
+  with_items:
+    - collectd
+
+- name: get ec2 facts
+  action: ec2_facts
+  when: ec2_region is defined
+
+- name: get tags
+  local_action: ec2_tag resource="{{ ansible_ec2_instance_id }}" region="{{ ec2_region }}" state=list
+  become: False
+  register: ec2_tags
+  when: ec2_region is defined
+
+- name: Cleanup tags
+  set_fact:
+    ec2_tag_name: "{{ ec2_tags.tags.Name | regex_replace('([ \\[\\]\\.])', '_') }}"
+  when: ec2_region is defined
+
+- name: Set ec2 hostname
+  lineinfile:
+    regexp: "^#Hostname \"localhost\""
+    line: "Hostname \"{{ ec2_tag_name }}\""
+    dest: /etc/collectd/collectd.conf
+  when: ec2_region is defined and ec2_tag_name
+
+- name: Set hostname
+  lineinfile:
+    regexp: "^#Hostname \"localhost\""
+    line: "Hostname \"{{ item }}\""
+    dest: /etc/collectd/collectd.conf
+  with_items:
+    - "{{ inventory_hostname | regex_replace('([ \\[\\]\\.])', '_') }}"
+  when: ec2_region is not defined
+
+- name: Set include collectd.conf.d
+  lineinfile:
+    line: "Include \"/etc/collectd/collectd.conf.d/*.conf\""
+    dest: /etc/collectd/collectd.conf
+
+- name: Create /etc/collectd/collectd.conf.d
+  file:
+      path=/etc/collectd/collectd.conf.d
+      state=directory
+
+- name: Copy collectd.conf
+  template:
+    src: "templates/etc/collectd/collectd.conf.d/{{ item }}.conf"
+    dest: "/etc/collectd/collectd.conf.d/{{ item }}.conf"
+    mode: 0644
+  with_items:
+    "{{ collectd_scripts | default(default_collectd_scripts) }}"
+
+- name: Restart collectd
+  service:
+    name: "{{ item }}"
+    state: restarted
+    enabled: yes
+  with_items:
+    - collectd
+

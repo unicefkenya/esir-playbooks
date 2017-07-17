@@ -1,0 +1,60 @@
+# user
+system_user: "onadata"
+system_group: "www-data"
+system_user_home: "/home/{{ system_user }}"
+
+# service
+env_name: "prod"
+service_name: "{{ system_user }}"
+codebase_path: "{{ system_user_home }}/app"
+versioned_path: "{{ codebase_path }}-versioned"
+checkout_path: "{{ versioned_path }}/{{ ansible_date_time['epoch'] }}"
+venv_path: "{{ system_user_home }}/.virtualenvs/{{ system_user }}"
+static_path: "{{ codebase_path }}/onadata/static"
+wsgi_module: "onadata.apps.main.wsgi:application"
+wsgi_processes: 10
+pid_file: "/tmp/{{ service_name }}.pid"
+log_path: "/var/log/{{ service_name }}"
+media_path: "{{ system_user_home }}/media"
+proxy_read_timeout: "300s"
+
+# git
+git_url: "git@github.com:onaio/onadata.git"
+git_key: "git_key"
+git_branch: "master"
+
+# google
+google_site_verification: ''
+google_analytics_property_id: ''
+
+# local_settings
+debug: False
+django_settings_module: "onadata.preset.local_settings"
+local_settings_path: "templates/opt/onadata/settings/local_settings.py"
+
+# celery
+celeryd_nodes: "{{ nginx_server_name }} export-node publish-xls-form-node google-export"
+celeryd_opts: "--concurrency=4 --autoscale=10,2 -Q:{{ nginx_server_name }} celery -Q:export-node exports -Q:publish-xls-form-node publish_xlsform -Q:google-export google_export"
+celery_app: "onadata.celery"
+
+# cache-control
+cache_control_max_age: 30
+client_max_body_size: 100M
+
+# enketo
+enketo_offline: "True"
+
+# odk attachment default content length
+odk_content_length: 10000000
+
+# recreate the virtual env, deletes the existing virtual env
+recreate_virtual_env: False
+
+enable_https: True
+
+# google exports
+include_google_export: "True"
+google_export_version: "v0.1"
+
+# ona tableau
+include_tableau: "True"

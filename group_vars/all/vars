@@ -1,0 +1,5 @@
+default_collectd_scripts: ["interface", "nginx", "uptime", "graphite", "unixsock"]
+
+graphite_server_ip: "{{ vault_graphite_server_ip }}"
+graphite_server_port: "{{ vault_graphite_server_port }}"
+graphite_server_protocol: "tcp"

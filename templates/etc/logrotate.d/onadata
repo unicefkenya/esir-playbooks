@@ -1,0 +1,9 @@
+"{{ log_path }}/uwsgi_{{ service_name }}.log" "/var/log/celery/*-ona.log" {
+    copytruncate
+    daily
+    rotate 52
+    compress
+    delaycompress
+    missingok
+    notifempty
+}

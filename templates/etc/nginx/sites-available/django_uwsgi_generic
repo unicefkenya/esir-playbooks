@@ -1,0 +1,92 @@
+server {
+    server_name  www.{{ nginx_server_name }};
+    rewrite ^(.*) $scheme://{{ nginx_server_name }}$1 permanent;
+}
+
+server {
+    # ports
+    listen 80;
+    listen [::]:80;
+
+    # server block/virtual host name
+    server_name {% for server_name in nginx_server_names %} {{ server_name }} {% endfor %};
+
+    include /etc/nginx/http_logs.conf;
+
+    # entity size
+    client_max_body_size {{ client_max_body_size }};
+
+    # static files
+    location /static  {
+        alias {{ static_path }};
+    }
+
+    {% if enable_https %}
+    location /admin {
+        rewrite (.*) https://$http_host$1 permanent;
+    }
+
+    location /accounts {
+        rewrite (.*) https://$http_host$1 permanent;
+    }
+    {% endif %}
+
+    location / {
+        # uwsgi backend
+        uwsgi_pass unix:///var/run/{{ service_name }}/{{ service_name }}.sock;
+        include uwsgi_params;
+        proxy_read_timeout {{ proxy_read_timeout }};
+
+        # no redirects
+        proxy_redirect     off;
+
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Host $server_name;
+
+        # timeouts on unavailable backend(s)
+        proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+    }
+
+}
+
+{% if enable_https %}
+server {
+    # ports
+    listen 443;
+    listen [::]:443;
+
+    # server block/virtual host name
+    server_name {% for server_name in nginx_server_names %} {{ server_name }} {% endfor %};
+
+    include /etc/nginx/secure_ssl.conf;
+
+    # entity size
+    client_max_body_size {{ client_max_body_size }};
+
+    # static files
+    location /static  {
+        alias {{ static_path }};
+    }
+
+    location / {
+        # uwsgi backend
+        uwsgi_pass unix:///var/run/{{ service_name }}/{{ service_name }}.sock;
+        include uwsgi_params;
+        proxy_read_timeout {{ proxy_read_timeout }};
+
+        # no redirects
+        proxy_redirect     off;
+
+        proxy_redirect     off;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Host $server_name;
+
+        # timeouts on unavailable backend(s)
+        proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+    }
+}
+{% endif %}

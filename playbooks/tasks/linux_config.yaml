@@ -1,0 +1,26 @@
+---
+- name: Update sysctl net settings
+  sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+  with_items:
+    - { name: "fs.file-max", value: 65535 }
+    - { name: "net.core.somaxconn", value: 4096 }
+    - { name: "net.core.rmem_max", value: 16777216 }
+    - { name: "net.core.wmem_max", value: 16777216 }
+    - { name: "net.ipv4.conf.default.rp_filter", value: 0 }
+    - { name: "net.ipv4.tcp_fin_timeout", value: 10 }
+    - { name: "net.ipv4.tcp_rmem", value: "4096 87380 16777216" }
+    - { name: "net.ipv4.tcp_wmem", value: "4096 16384 16777216" }
+    - { name: "net.ipv4.tcp_tw_reuse", value: 1 }
+
+- name: Update limits.conf limits
+  lineinfile:
+    dest: /etc/security/limits.conf
+    line: "{{ item }}"
+    state: present
+    insertafter: EOF
+    create: True
+  with_items:
+    - "* soft nofile 65535"
+    - "* hard nofile 65535"

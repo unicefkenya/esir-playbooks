@@ -1,0 +1,97 @@
+# nginx settings
+ssl_cert: "esir.crt"
+ssl_key: "esir.key"
+nginx_cert_path: "/etc/nginx/ssl/{{ ssl_cert }}"
+nginx_key_path: "/etc/nginx/ssl/{{ ssl_key }}"
+nginx_server_name: "api.socialreporting.go.ke"
+nginx_server_names: ["api.socialreporting.go.ke", "odk.socialreporting.go.ke"]
+default_nginx_server_name: "api.socialreporting.go.ke"
+
+# local settings
+aws_access_key: "{{ vault_aws_access_key }}"
+aws_secret_key: "{{ vault_aws_secret_key }}"
+s3_bucket: "{{ vault_s3_bucket }}"
+
+enketo_auth_cookie_domain: ".socialreporting.go.ke"
+enketo_login_url: "https://data.socialreporting.go.ke/login"
+enketo_url: "https://enketo.socialreporting.go.ke"
+enketo_api_token: "{{ vault_enketo_api_token }}"
+enketo_api_salt: "{{ vault_enketo_api_salt }}"
+
+jwt_secret_key: "{{ vault_jwt_secret_key }}"
+
+is_aws: "True"
+
+custom_template: "git@github.com:onaio/onadata-template.git"
+
+allowed_host: ["api.socialreporting.go.ke", "odk.socialreporting.go.ke"]
+
+cors_origin_whitelist: ["socialreporting.go.ke", "data.socialreporting.go.ke", "enketo.socialreporting.go.ke", "localhost:8080"]
+
+odk_server_uri: "odk.socialreporting.go.ke"
+
+google_client_id: "{{ vault_google_client_id }}"
+google_client_secret: "{{ vault_google_client_secret }}"
+google_client_email: "{{ vault_google_client_email }}"
+django_secret_key: "{{ vault_django_secret_key }}"
+
+# uwsgi
+uwsgi_total_memory_limit: 5000.0
+memcache_uri: "127.0.0.1:11211"
+
+email_admins:
+  - ['Ona Tech', 'techops+{{nginx_server_name }}@ona.io']
+
+# rabbitmq
+rabbitmq_host: "127.0.0.1"
+rabbitmq_user: "{{ vault_rabbitmq_user }}"
+rabbitmq_password: "{{ vault_rabbitmq_password }}"
+rabbitmq_erlang_cookie: "{{ vault_rabbitmq_erlang_cookie }}"
+rabbitmq_create_cluster: False
+rabbitmq_users:
+  - user: "{{ rabbitmq_user }}"
+    password: "{{ rabbitmq_password }}"
+    vhost: /
+    configure_priv: .*
+    read_priv: .*
+    write_priv: .*
+    tags: administrator
+# users to remove
+rabbitmq_users_removed: []
+# vhosts to create
+rabbitmq_vhosts: []
+rabbitmq_ulimit_open_files: 40000
+# postgresql
+dedicated_postgres_host: "False"
+
+# psql vars
+pgsql_db: "{{ vault_pgsql_db }}"
+
+pgsql_user: "{{ vault_pgsql_user }}"
+
+pgsql_password: "{{ vault_pgsql_password }}"
+
+pgsql_host: "{{ vault_pgsql_host }}"
+
+postgresql_version: 9.6
+
+postgresql_users:
+  - name: "{{ pgsql_user }}"
+    pass: "{{ pgsql_password }}"
+
+postgresql_databases:
+  - name: "{{ pgsql_db }}"
+    owner: "{{ pgsql_user }}"
+    hstore: yes
+    gis: yes
+    plpgsql: yes
+
+postgresql_user_privileges:
+  - name: "{{ pgsql_user }}"
+    db: "{{ pgsql_db }}"
+    priv: "ALL"
+
+postgresql_ext_install_postgis: yes
+postgresql_ext_postgis_version: "2.3"
+
+collectd_scripts: ["interface", "nginx", "uptime", "graphite", "unixsock"]

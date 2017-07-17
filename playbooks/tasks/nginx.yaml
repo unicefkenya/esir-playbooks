@@ -1,0 +1,113 @@
+---
+- name: Add latest nginx repo
+  apt_repository:
+    repo: 'ppa:nginx/stable'
+    state: present
+
+- name: ensure nginx is installed
+  apt:
+    pkg: "{{ item }}"
+    state: latest
+    update_cache: yes
+    cache_valid_time: 600
+  with_items:
+    - nginx
+
+- name: Ensure ssl directory is present
+  file:
+    state: directory
+    path: /etc/nginx/ssl
+    owner: root
+    mode: 0700
+  when: enable_https == True
+
+- name: Copy ssl certs
+  copy:
+    src: "{{ playbook_dir }}/files/{{ item }}"
+    dest: "/etc/nginx/ssl/{{ item }}"
+    mode: 0600
+  with_items:
+    - "{{ ssl_key }}"
+    - "{{ ssl_cert }}"
+  when: enable_https == True
+
+- name: Copy nginx config files
+  template:
+    src: "templates/etc/nginx/{{ item }}.conf"
+    dest: "/etc/nginx/{{ item }}.conf"
+    mode: 0644
+  with_items:
+    - nginx
+    - http_logs
+
+- name: Copy SSL nginx config files
+  template:
+    src: "templates/etc/nginx/{{ item }}.conf"
+    dest: "/etc/nginx/{{ item }}.conf"
+    mode: 0644
+  with_items:
+    - secure_ssl
+  when: enable_https == True
+
+- name: Generate secure Diffie Hellman ephemeral parameters
+  command: openssl dhparam -dsaparam -out /etc/ssl/certs/dhparam.pem 4096 creates=/etc/ssl/certs/dhparam.pem
+  when: enable_https == True
+
+- name: Copy default nginx config
+  template:
+    src: templates/etc/nginx/sites-available/default
+    dest: /etc/nginx/sites-available/default
+    mode: 0644
+
+- name: Ensure default nginx site is activated
+  file:
+    state: link
+    src: /etc/nginx/sites-available/default
+    dest: /etc/nginx/sites-enabled/default
+    force: yes
+  ignore_errors: yes
+
+- name: Copy application nginx config
+  template:
+    src: templates/etc/nginx/sites-available/{{ cfg_file }}
+    dest: /etc/nginx/sites-available/{{ service_name }}
+    mode: 0644
+
+- name: Activate nginx site
+  file:
+    state: link
+    src: /etc/nginx/sites-available/{{ service_name }}
+    dest: /etc/nginx/sites-enabled/{{ service_name }}
+    force: yes
+  ignore_errors: yes
+
+- name: Copy collectd nginx config
+  template:
+    src: templates/etc/nginx/sites-available/collectd
+    dest: /etc/nginx/sites-available/collectd
+    mode: 0644
+
+- name: Include blocked ips
+  template:
+    src: templates/etc/nginx/conf.d/blockedips.conf
+    dest: /etc/nginx/conf.d/blockedips.conf
+    mode: 0644
+  when: blockedips is defined and blockedips
+
+- name: Ensure collectd nginx site is activated
+  file:
+    state: link
+    src: /etc/nginx/sites-available/collectd
+    dest: /etc/nginx/sites-enabled/collectd
+    force: yes
+  ignore_errors: yes
+
+- name: Ensure log directory is present
+  file:
+    state: directory
+    path: "{{ item }}"
+    owner: "{{ system_user }}"
+  with_items:
+    - "{{ log_path }}"
+
+- include: ../tasks/logrotate.yaml logrotate_from=nginx logrotate_to={{ service_name }}-nginx

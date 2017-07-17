@@ -1,0 +1,15 @@
+[Unit]
+Description=uWSGI {{ service_name }} web app
+After=network.target
+
+[Service]
+Type=notify
+RuntimeDirectory={{ service_name }}
+WorkingDirectory={{ codebase_path }}
+User={{ system_user }}
+Group=www-data
+ExecStart={{ venv_path }}/bin/uwsgi --ini {{ codebase_path }}/uwsgi.ini --env DJANGO_SETTINGS_MODULE={{ django_settings_module }}
+
+
+[Install]
+WantedBy=multi-user.target

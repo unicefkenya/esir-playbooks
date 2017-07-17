@@ -1,0 +1,14 @@
+server {
+    listen       80;
+    server_name  localhost 127.0.0.0;
+
+    access_log  /var/log/nginx/collectd_acc.log;
+    error_log  /var/log/nginx/collectd_err.log;
+
+    # for collectd
+    location /status {
+      stub_status on;
+      allow 127.0.0.1;
+      deny all;
+    }
+}

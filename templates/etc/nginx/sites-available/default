@@ -1,0 +1,5 @@
+server {
+    listen 80 default_server;
+    server_name _;
+    return 301 http://{{ default_nginx_server_name }}$request_uri;
+}

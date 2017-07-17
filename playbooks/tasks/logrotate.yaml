@@ -1,0 +1,11 @@
+---
+- name: Copy logrotate file - {{ logrotate_from }}
+  template:
+    src: templates/etc/logrotate.d/{{ logrotate_from }}
+    dest: /etc/logrotate.d/{{ logrotate_to }}
+    mode: 0644
+
+- name: Force logrotate
+  shell: "logrotate -f /etc/logrotate.conf"
+  ignore_errors: True
+

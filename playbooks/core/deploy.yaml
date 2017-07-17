@@ -1,0 +1,260 @@
+---
+- name: deploy onadata
+  hosts: core
+  serial: 1
+  become: True
+  gather_facts: True
+  tags:
+    - core
+  roles:
+    -  alexeymedvedchikov.rabbitmq
+    - ANXS.postgresql
+  vars:
+    monit_scripts: []
+  tasks:
+    - name: Get ec2 facts
+      action: ec2_facts
+
+    - name: Add onadata system user
+      user:
+        name: "{{ system_user }}"
+        shell: /bin/bash
+        group: "{{ system_group }}"
+        append: yes
+        createhome: yes
+
+    - include: ../tasks/linux_config.yaml
+
+    - name: Create .ssh folder
+      file:
+        path: "/home/{{ system_user }}/.ssh"
+        owner: "{{ system_user }}"
+        state: directory
+
+    - name: Copy git key
+      copy:
+        src: "{{ playbook_dir }}/files/{{ item }}"
+        dest: "/home/{{ system_user }}/.ssh/{{ item }}"
+        mode: 0600
+        owner: "{{ system_user }}"
+      with_items:
+        - "{{ git_key }}"
+
+    - name: github ssh config
+      ssh_config:
+        host: github.com
+        identity_file: "{{ item }}"
+        state: present
+      with_items:
+        - "/home/{{ system_user }}/.ssh/{{ git_key }}"
+
+    - name: Install system-wide onadata dependencies
+      apt:
+        pkg: "{{ item }}"
+        state: latest
+        update_cache: yes
+        cache_valid_time: 600
+      with_items:
+        - binutils
+        - libproj-dev
+        - gdal-bin
+        - memcached
+        - libmemcached-dev
+        - build-essential
+        - python-pip
+        - python-virtualenv
+        - python-dev
+        - git
+        - libssl-dev
+        - libpq-dev
+        - gfortran
+        - libatlas-base-dev
+        - libjpeg-dev
+        - libxml2-dev
+        - libxslt-dev
+        - zlib1g-dev
+        - python-software-properties
+        - ghostscript
+        - python-celery
+        - python-sphinx
+        - openjdk-9-jdk-headless
+        - openjdk-9-jre-headless
+
+    - name: Delete virtualenv
+      file:
+        state: absent
+        path: "{{ item }}"
+      with_items:
+        - "{{ venv_path }}"
+      when: recreate_virtual_env
+
+    - name: Ensure required checkout directories are present
+      file:
+        state: directory
+        owner: "{{ system_user }}"
+        group: www-data
+        path: "{{ item }}"
+      with_items:
+        - "{{ versioned_path }}"
+        - "{{ checkout_path }}"
+        - "{{ venv_path }}"
+        - "{{ log_path }}"
+        - "/var/run/{{ system_user }}"
+
+    - name: Ensure required checkout directories are present
+      file:
+        state: directory
+        owner: "{{ system_user }}"
+        group: www-data
+        path: "{{ item }}"
+      with_items:
+        - "{{ media_path }}"
+      ignore_errors: yes
+
+    - include: ../tasks/ntp.yaml
+
+    - name: Git clone onadata
+      git:
+        accept_hostkey: "yes"
+        repo: "{{ git_url }}"
+        dest: "{{ checkout_path }}"
+        version: "{{ git_branch }}"
+        key_file: "/home/{{ system_user }}/.ssh/{{ git_key }}"
+
+    - name: custom template
+      shell: (git remote add template {{ custom_template }} || true) && git fetch template && git reset HEAD onadata/libs/custom_template && rm -rf onadata/libs/custom_template && git read-tree --prefix=onadata/libs/custom_template -u template/master
+      args:
+        executable: /bin/bash
+        chdir: "{{ checkout_path }}"
+
+    - name: Install base pip requirements
+      pip:
+        state: present
+        requirements: "{{ checkout_path }}/requirements/base.pip"
+        virtualenv: "{{ venv_path }}"
+        extra_args: --allow-all-external
+
+    - name: Install development pip requirements
+      pip:
+        state: present
+        requirements: "{{ checkout_path }}/requirements/dev.pip"
+        virtualenv: "{{ venv_path }}"
+        extra_args: --allow-all-external
+      when: env_name == "dev"
+
+    - name: Install ses and s3 requirements
+      pip:
+        state: present
+        requirements: "{{ checkout_path }}/requirements/{{ item }}.pip"
+        virtualenv: "{{ venv_path }}"
+        extra_args: --allow-all-external
+      with_items:
+        - ses
+        - s3
+      when: env_name == "prod"
+
+    - name: Install google export library
+      pip: name='git+git@github.com:onaio/google-export.git@{{ google_export_version }}#egg=google-export' virtualenv="{{ venv_path }}"
+      when: env_name == "prod" and include_google_export == "True"
+
+    - name: Install tableau library
+      pip: name='git+https://github.com/onaio/ona-tableau-connector.git#egg=ona-tableau-connector' virtualenv="{{ venv_path }}"
+      when: env_name == "prod" and include_tableau == "True"
+
+    - name: Install numpy
+      pip:
+        state: present
+        name: numpy
+        virtualenv: "{{ venv_path }}"
+
+    - name: Install uwsgi
+      pip:
+        state: present
+        name: uwsgi
+        virtualenv: "{{ venv_path }}"
+
+    - name: Ensure required checkout directories are present
+      file:
+        state: directory
+        owner: "{{ system_user }}"
+        group: www-data
+        path: "{{ item }}"
+      with_items:
+        - "{{ checkout_path }}/onadata/preset"
+
+    - name: Copy over our local settings from template
+      template:
+        src: "templates/opt/onadata/settings/{{ item }}"
+        dest: "{{ checkout_path }}/onadata/preset/{{ item }}"
+        owner: root
+        group: root
+        mode: 0644
+      with_items:
+        - "local_settings.py"
+        - "__init__.py"
+
+    - name: Make the new codebase current
+      file:
+        force: yes
+        state: link
+        dest: "{{ codebase_path }}"
+        src: "{{ checkout_path }}"
+
+    - name: Copy onadata.service
+      template:
+        src: templates/etc/systemd/system/django_uwsgi_generic.service
+        dest: /etc/systemd/system/onadata.service
+        mode: 0644
+
+    - name: Copy uwsgi.ini
+      template:
+        src: templates/common/uwsgi_generic.ini
+        dest: "{{ checkout_path }}/uwsgi.ini"
+        mode: 0644
+
+    - name: Generate Docs
+      shell: source {{ venv_path }}/bin/activate && /usr/bin/make html
+      args:
+        executable: /bin/bash
+        chdir: "{{ codebase_path }}/docs"
+
+    - name: Syncdb, migrate and collect static files
+      django_manage:
+        command: "{{ item }}"
+        app_path: "{{ codebase_path }}"
+        virtualenv: "{{ venv_path }}"
+        settings: "{{ django_settings_module }}"
+      with_items:
+        - migrate --noinput contenttypes
+        - migrate --fake-initial --noinput django_digest
+        - migrate --fake-initial --noinput guardian
+        - migrate --fake-initial --noinput registration
+        - migrate --noinput
+        - collectstatic --noinput
+
+    - include: ../tasks/nginx.yaml cfg_file=django_uwsgi_generic
+
+    - include: ../tasks/logrotate.yaml logrotate_from=onadata logrotate_to=onadata
+    - include: ../tasks/logrotate.yaml logrotate_from=celery logrotate_to=onadata_celery
+    - include: ../tasks/collectd.yaml
+
+    - name: Restart onadata, nginx & rabbitmq
+      service:
+        name: "{{ item }}"
+        state: restarted
+        enabled: yes
+      with_items:
+        - onadata
+        - nginx
+        - memcached
+
+    - name: Get previous app deploy listing
+      shell: ls -tr1 chdir={{ versioned_path }}
+      register: versioned_list
+
+    - name: Remove extra files from app directroy
+      file:
+        path: "{{ versioned_path }}/{{ versioned_list.stdout_lines[item|int] }}"
+        state: absent
+      with_sequence: start=0 end={{ versioned_list.stdout_lines|length - 10 }}
+      ignore_errors: yes
