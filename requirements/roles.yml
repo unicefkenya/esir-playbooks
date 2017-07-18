@@ -1,5 +1,5 @@
 - src: ANXS.postgresql
-#- src: DavidWittman.redis
+- src: DavidWittman.redis
 #- src: nodesource.node
 - src: alexeymedvedchikov.rabbitmq
 # - src: pablocrivella.nvm

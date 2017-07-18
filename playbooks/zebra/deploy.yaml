@@ -1,0 +1,221 @@
+---
+- name: Deploy Zebra
+  hosts: zebra
+  become: True
+  gather_facts: True
+  tags:
+    - zebra
+  pre_tasks:
+    - name: Update apt cache
+      become: yes
+      apt: update_cache=yes
+
+  roles:
+   - DavidWittman.redis
+  vars:
+    - redis_bind: 127.0.0.1
+
+  tasks:
+    - name: Add zebra system user
+      user:
+        name: "{{ system_user }}"
+        shell: /bin/bash
+        group: www-data
+        groups: tty
+        append: yes
+        createhome: yes
+        home: "{{ system_user_home }}"
+
+    - name: Ensure zebra dependencies are installed
+      apt:
+        pkg: "{{ item }}"
+        state: latest
+        update_cache: yes
+        cache_valid_time: 600
+      with_items:
+        - openjdk-8-jre-headless
+        - openjdk-8-jdk-headless
+
+    - name: Ensure required directories are present
+      file:
+        state: directory
+        path: "{{ item }}"
+        owner: "{{ system_user }}"
+      with_items:
+        - "{{ install_path }}"
+        - "{{ system_user_home }}/assets-versioned"
+
+    - name: Ensure checkout directory is empty
+      file:
+        state: absent
+        path: "{{ item }}"
+        owner: "{{ system_user }}"
+      with_items:
+        - "{{ local_checkout_path }}"
+      delegate_to: 127.0.0.1
+      become: no
+
+    - name: Checking out codebase
+      git:
+        repo: "{{ git_url }}"
+        dest: "{{ local_checkout_path }}"
+        version: "{{ git_branch }}"
+        key_file: "{{ zebra_deploy_key }}"
+      delegate_to: 127.0.0.1
+      become: no
+
+    # Ensure we have a predictable jar filename TODO: another way
+    - name: Replace version string to get a predictable filename
+      lineinfile:
+        regexp: "^\\(defproject onaio/zebra"
+        line: "(defproject ona-viewer \"DEPLOY\""
+        dest: "{{ local_checkout_path }}/project.clj"
+      delegate_to: 127.0.0.1
+      become: no
+
+    - name: Compile zebra jar allowing for snapshots
+      shell: "cd {{ local_checkout_path }} && lein clean-uberjar"
+      delegate_to: 127.0.0.1
+      become: no
+      environment:
+        JWT_SECRET_KEY: "{{ jwt_secret_key }}"
+        LEIN_SNAPSHOTS_IN_RELEASE: TRUE
+        ONA_ENV: "{{ remote_hosts_key }}"
+        ONA_EMAIL_AWS_USER: "{{ aws_email_username }}"
+        ONA_EMAIL_AWS_PASS: "{{ aws_email_password }}"
+        ONA_BASE_API_KEY: "{{ base_api_key }}"
+        ONA_HELPSCOUT_API_KEY: "{{ helpscout_api_key }}"
+        ONA_DROPBOX_DATA_APP_KEY: "{{ dropbox_data_app_key }}"
+        REDIS_HOST: "{{ redis_host }}"
+        ONA_STRIPE_SECRET_KEY: "{{ stripe_secret_key }}"
+        ONA_STRIPE_PUBLISHABLE_KEY: "{{ stripe_publishable_key }}"
+        ONA_LOGO: "{{ ona_logo }}"
+        ONA_LOGO_DATAVIEW: "{{ ona_logo_dataview }}"
+        ONA_APP_NAME: "{{ app_name }}"
+        ONA_FILTER_EDITOR_SUBMISSIONS: "{{ filter_editor_submissions }}"
+        ONA_DISABLE_PRICING: "{{ disable_pricing }}"
+        ONA_LOGIN_AS_HOME: "{{ login_as_home }}"
+        ONA_REMOTE_PROTOCOL: "{{ ona_remote_protocol }}"
+        ONA_API_SERVER_HOST: "{{ ona_api_server_host }}"
+        ONA_ODK_SERVER_HOST: "{{ ona_odk_server_host }}"
+        ONA_UI_SERVER_HOST: "{{ ona_ui_server_host }}"
+        ONA_API_DEFAULT_DATASET_ID: "{{ ona_api_default_dataset_id }}"
+        ONA_DEBUG: "FALSE"
+        ONA_SIDE_BAR_LOGOS: "{{ side_bar_logos }}"
+        ONA_HIDE_JOIN_ONA: "{{ hide_join_on }}"
+        ONA_HIDE_FOOTER_LINKS: "{{ hide_footer_links }}"
+        ONA_HIDE_ATTRIBUTION: "{{ hide_attribution }}"
+        ONA_LOGIN_BACKGROUND_IMAGE: "{{ login_background_image|default('false') }}"
+        ONA_COOKIE_DOMAIN: "{{ ona_cookie_domain }}"
+        ONA_ENKETO_DOMAIN: "{{ ona_enketo_domain|default('false') }}"
+        ONA_GOOG_PROPERTY_ID: "{{ ona_goog_property_id }}"
+        ONA_LOAD_HELPSCOUT: "FALSE"
+        ONA_TILES_SERVER_HOST: "{{ ona_tiles_server_host|default('false') }}"
+        MILIA_HTTP_DEFAULT_PER_ROUTE: 20
+        MILIA_HTTP_THREADS: 20
+        ONA_DIGITAL_GLOBE_FREE: "{{ digital_globe_free|default('false') }}"
+        DIGITAL_GLOBE_ACCESS_TOKEN: "{{ digital_globe_access_token|default('false') }}"
+        ONA_PROJECT_FILE_UPLOADS: "{{ project_file_uploads|default('false') }}"
+        ONA_SUBMISSION_FILE_UPLOADS: "{{ submission_file_uploads|default('false') }}"
+        ONA_SHOW_EDIT_HISTORY: "{{ show_edit_history|default('false') }}"
+        ONA_SHOW_SUBMISSION_NOTIFICATIONS: "{{ show_submission_notifications|default('false') }}"
+        ONA_SUBMISSION_COMMENTS: "{{ submission_comments|default('false') }}"
+        ONA_HIDE_ACTIONS_COLUMN: "{{ hide_actions_column|default('false') }}"
+        FORMBUILDER_URL: "{{ formbuilder_url|default('false') }}"
+        INTERCOM_ACCESS_TOKEN: "{{ intercom_access_token|default('false') }}"
+        ONA_NOTIFICATIONS_ENABLED: "{{ notifications_enabled|default('true') }}"
+        INTERCOM_APP_ID:  "{{ intercom_app_id|default('false') }}"
+        JETTY_MAX_THREADS: "{{ jetty_max_threads|default(500) }}"
+        JETTY_MAX_IDLE_TIME: "{{ jetty_max_idle_time|default(60000) }}"
+
+    - name: Move resources images to assets
+      shell: "mv {{ local_checkout_path }}/resources/public/img/* {{ local_checkout_path }}/assets/img"
+      delegate_to: 127.0.0.1
+      become: no
+
+    - name: Archive assets and img
+      command: "tar czvf {{ local_checkout_path }}/assets.tgz -C {{ local_checkout_path }} assets"
+      delegate_to: 127.0.0.1
+      become: no
+
+    - name: Create asset directory
+      file: "path={{ asset_path }} state=directory"
+
+    - name: Copy and unarchive assets
+      unarchive:
+        src: "{{ local_checkout_path }}/assets.tgz"
+        dest: "{{ asset_path }}"
+        mode: 0755
+        group: www-data
+        owner: "{{ system_user }}"
+
+    - name: Copy uberjar to prod
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        mode: 0755
+        group: www-data
+        owner: "{{ system_user }}"
+      with_items:
+        - {src: "{{ local_checkout_path }}/target/ona-viewer-DEPLOY-standalone.jar",
+           dest: "{{ new_jar_path }}"}
+
+    - name: Make the new codebase current
+      file:
+        force: yes
+        state: link
+        dest: "{{ item.dest }}"
+        src: "{{ item.src }}"
+      with_items:
+      - {dest: "{{ jar_symlink }}", src: "{{ new_jar_path }}"}
+      - {dest: "{{ asset_symlink }}", src: "{{ asset_path }}/assets"}
+
+    - name: Copy zebra.service
+      template:
+        src: templates/etc/systemd/system/zebra.service
+        dest: /etc/systemd/system/zebra.service
+        mode: 0644
+
+    - include: ../tasks/nginx.yaml cfg_file=zebra
+
+    - name: (Re-)start zebra and nginx
+      service:
+        name: "{{ item }}"
+        state: restarted
+      with_items:
+        - zebra
+        - nginx
+
+    - name: Add cron for restarting nginx every 12 hours
+      cron:
+          name: "Restart nginx cron"
+          minute: "0"
+          hour: "0,12"
+          job: "/usr/sbin/service nginx restart"
+          user: "root"
+          cron_file: "restart_nginx"
+
+    - include: ../tasks/logrotate.yaml logrotate_from=zebra logrotate_to=zebra
+    - include: ../tasks/collectd.yaml
+
+    - name: Get JAR directory listing
+      shell: ls -tr1 chdir={{ install_path }}
+      register: jar_list
+
+    - name: Get versioned asset directories listing
+      shell: ls -tr1 chdir={{ asset_base }}
+      register: asset_list
+
+    - name: Remove extra JARs from app directroy
+      file:
+        path: "{{ install_path }}/{{ jar_list.stdout_lines[item|int] }}"
+        state: absent
+      with_sequence: start=0 end={{ jar_list.stdout_lines|length - 10 }}
+      ignore_errors: yes
+
+    - name: Remove extra versioned asset directories from app directroy
+      file:
+        path: "{{ asset_base }}/{{ asset_list.stdout_lines[item|int] }}"
+        state: absent
+      with_sequence: start=0 end={{ asset_list.stdout_lines|length - 10 }}
+      ignore_errors: yes

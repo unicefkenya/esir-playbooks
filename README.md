@@ -26,10 +26,17 @@ In a nutshell, if you're using debian/ubuntu :- `apt-get install python-dev`
 
 ##  Deployment Commands
 
-***Deploying API***
+***Deploying Data Platform API***
 
 `ansible-playbook -i inventory/esir-api.ini esir-api.yaml --vault-password-file [path to password file]`
 
+***Deploying Data Platform UI***
+
+`ansible-playbook -i inventory/esir-data.ini esir-data.yaml --vault-password-file [path to password file]`
+
+***Deploying e-SIR dashboard***
+
+`ansible-playbook -i inventory/esir.ini esir.yaml --vault-password-file [path to password file]`
 
 
 [1]: http://www.ansible.com

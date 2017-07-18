@@ -1,0 +1,34 @@
+---
+# user
+system_user: zebra
+system_user_home: "/home/{{ system_user }}"
+
+# service
+service_name: "{{ system_user }}"
+log_path: "/var/log/{{ service_name }}"
+pid_file: "/tmp/{{ service_name }}.pid"
+install_path: "{{ system_user_home }}/app"
+timestamp_suffix: "{{ ansible_date_time['epoch'] }}"
+new_jar_path: "{{ install_path }}/{{ timestamp_suffix }}.jar"
+jar_symlink: "{{ install_path }}/ona-viewer.jar"
+asset_base: "{{ system_user_home }}/assets-versioned"
+asset_path: "{{ asset_base }}/{{ timestamp_suffix }}"
+asset_symlink: "{{ install_path }}/assets"
+
+# git
+git_branch: "v1.4.0"
+git_url: git@github.com:onaio/zebra.git
+local_checkout_path: "/tmp/{{ service_name }}"
+zebra_deploy_key: "files/git_key"
+
+# nginx
+proxy_read_timeout: 305s
+zebra_upstream: http://localhost:8080;
+
+# remotes
+ona_remote_protocol: "https"
+
+# env settings
+hide_attribution: False
+
+jetty_total_memory_limit: 3000.0

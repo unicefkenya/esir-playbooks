@@ -1,0 +1,18 @@
+[Unit]
+Description=Ona Front-End UI - {{ service_name }} web app
+After=network.target
+After=redis_6379.service
+
+[Service]
+Type=simple
+RuntimeDirectory={{ service_name }}
+WorkingDirectory={{ install_path }}
+User={{ system_user }}
+Group=www-data
+ExecStart=/bin/sh -ec "/usr/bin/java -server -verbose:gc -Xloggc:{{ log_path }}/gc.log -XX:+PrintGCDateStamps -XX:+PrintGCTimeStamps -XX:+PrintGCDetails -XX:+PrintTenuringDistribution -XX:+PrintCommandLineFlags -XX:+PrintReferenceGC -XX:+PrintAdaptiveSizePolicy -XX:+PrintFlagsFinal -XX:+DisableExplicitGC -XX:+UseConcMarkSweepGC -XX:+CMSParallelRemarkEnabled -XX:+ScavengeBeforeFullGC -XX:+CMSScavengeBeforeRemark -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath={{ log_path }}_`date +\"%Y-%m-%d_%H-%M-%S\"`.hprof -XX:+TieredCompilation -XX:NewSize=256m -XX:SurvivorRatio=14 -Xms{{ java_heap_size|default('1g') }} -Xmx{{ java_heap_size|default('1g') }} -Djava.awt.headless=true -jar {{ jar_symlink }} >> {{ log_path }}/app.log 2>&1"
+ExecStop=/bin/kill -TERM $MAINPID
+Restart=always
+TimeoutSec=300
+
+[Install]
+WantedBy=multi-user.target

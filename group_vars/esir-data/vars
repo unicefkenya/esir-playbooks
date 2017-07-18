@@ -1,0 +1,35 @@
+app_name: "e-SIR"
+disable_pricing: True
+filter_editor_submissions: False
+hide_footer_links: True
+hide_attribution: True
+hide_join_on: False
+load_helpscout: False
+login_as_home: True
+ona_api_default_dataset_id: "nil"
+odk_server_uri: "https://odk.socialreporting.go.ke"
+ona_api_server_host: "api.socialreporting.go.ke"
+ona_cookie_domain: ".socialreporting.go.ke"
+ona_logo: "/img/onadata-logo.png"
+ona_goog_property_id: ""
+ona_odk_server_host: "odk.socialreporting.go.ke"
+ona_ui_server_host: "data.socialreporting.go.ke"
+redis_host: 127.0.0.1
+remote_hosts_key: "esir"
+side_bar_logos: False
+stripe_secret_key: ""
+stripe_publishable_key: ""
+base_api_key: ""
+helpscout_api_key: ""
+dropbox_data_app_key: ""
+
+# nginx settings
+client_max_body_size: 100M
+ssl_cert: "esir.crt"
+ssl_key: "esir.key"
+nginx_cert_path: "/etc/nginx/ssl/{{ ssl_cert }}"
+nginx_key_path: "/etc/nginx/ssl/{{ ssl_key }}"
+nginx_server_name: "data.socialreporting.go.ke"
+nginx_server_names: ["data.socialreporting.go.ke"]
+default_nginx_server_name: "data.socialreporting.go.ke"
+enable_https: True

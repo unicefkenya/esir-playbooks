@@ -1,0 +1,9 @@
+"{{ log_path }}/app.log" "{{ log_path }}/gc.log" {
+    copytruncate
+    daily
+    rotate 52
+    compress
+    delaycompress
+    missingok
+    notifempty
+}
