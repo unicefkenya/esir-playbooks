@@ -96,6 +96,8 @@ DEFAULT_FILE_STORAGE = 'storages.backends.s3boto.S3BotoStorage'
 AWS_STORAGE_BUCKET_NAME = '{{ s3_bucket }}'
 AWS_DEFAULT_ACL = 'private'
 AWS_S3_FILE_OVERWRITE = False
+S3_USE_SIGV4 = True
+AWS_S3_HOST = 's3.eu-central-1.amazonaws.com'
 {% endif %}
 
 ADMINS = (
