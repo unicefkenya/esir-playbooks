@@ -1,0 +1,149 @@
+---
+- name: Deploy enketo
+  hosts: enketo
+  become: True
+  gather_facts: True
+  tags:
+    - enketo
+  roles:
+   - DavidWittman.redis
+  vars:
+    - redis_bind: 127.0.0.1
+  tasks:
+
+    - name: Add Enketo System User
+      user:
+        name: "{{ system_user }}"
+        shell: /bin/bash
+        group: www-data
+        force: yes
+        append: yes
+        createhome: yes
+        home: "{{ system_user_home }}"
+
+    - name: Install nvm and node
+      include: ../tasks/install_nvm_and_specific_node_version.yaml
+
+    - name: Install Enketo Dependencies
+      apt:
+       pkg: "{{ item }}"
+       state: latest
+       update_cache: yes
+       cache_valid_time: 600
+      with_items:
+       - build-essential
+       - git
+       - libxml2-dev
+       - libxslt1-dev
+       - nginx
+
+    - name: Install yarn
+      shell: "{{ npm_path }} install -g yarn"
+      environment:
+        PATH: "{{ node_dir }}/bin:{{ ansible_env.PATH }}"
+
+    - name: Install npm global packages
+      shell: "yarn global add {{ item }}"
+      with_items:
+        - grunt-cli
+        - bower
+        - mocha
+        - pm2
+      environment:
+        PATH: "{{ node_dir }}/bin:{{ ansible_env.PATH }}"
+
+    - name: Make Checkout Path for Enketo Repo
+      file:
+        state: directory
+        path: "{{ checkout_path }}"
+        owner: "{{ system_user }}"
+      become_user: "{{ system_user }}"
+
+    - name: Clone Enketo GIT Repository
+      git:
+        repo: "{{ git_url }}"
+        dest: "{{ checkout_path }}"
+        version: "{{ git_branch }}"
+        recursive: yes
+        update: yes
+      become_user: "{{ system_user }}"
+
+    # commenting this out now before npm module issue is sorted because
+    # it's triggering an error when phantomjs is being installed.
+    # issue link - https://github.com/ansible/ansible-modules-extras/issues/1375
+    #- name: Copy node_modules folder
+    #  command: rsync -ar "{{ codebase_path }}/node_modules" "{{ checkout_path }}"
+    #  ignore_errors: yes
+    #  become_user: "{{ system_user }}"
+
+    - name: Install npm Dependencies in package.json
+      shell: "yarn"
+      args:
+        chdir: "{{ checkout_path }}"
+      environment:
+        PATH: "{{ node_dir }}/bin:{{ ansible_env.PATH }}"
+
+    - name: Copy enketo config to config directory
+      template:
+        src: templates/enketo/config.json
+        dest: "{{ checkout_path }}/config/config.json"
+        mode: 0644
+
+    - name: Grunt Compile CSS and JS
+      shell: "{{ grunt_path }}"
+      args:
+        chdir: "{{ checkout_path }}"
+      environment:
+        PATH: "{{ node_dir }}/bin:{{ ansible_env.PATH }}"
+        HOME: "{{ system_user_home }}"
+
+    - name: Re run Grunt Compile CSS and JS
+      shell: "{{ grunt_path }}"
+      args:
+        chdir: "{{ checkout_path }}"
+      environment:
+        PATH: "{{ node_dir }}/bin:{{ ansible_env.PATH }}"
+        HOME: "{{ system_user_home }}"
+
+    - name: Make the new codebase current
+      file:
+        force: yes
+        state: link
+        dest: "{{ codebase_path }}"
+        src: "{{ checkout_path }}"
+
+    - include: ../tasks/nginx.yaml cfg_file={{ enketo_nginx_file }}
+
+    - name: delete specific enketo pm2 process
+      command: "{{ pm2_path }} delete {{ system_user }}"
+      become_user: "{{ system_user }}"
+      # this command fails if the process has not yet been started
+      ignore_errors: yes
+      environment:
+        PATH: "{{ node_dir }}/bin:{{ ansible_env.PATH }}"
+
+    - name: start enketo pm2 service
+      command: "{{ pm2_path }} start app.js -i 0 -n {{ system_user }} --interpreter {{ node_dir }}/bin/node"
+      args:
+        chdir: "{{ codebase_path }}"
+      become_user: "{{ system_user }}"
+      environment:
+        PATH: "{{ node_dir }}/bin:{{ ansible_env.PATH }}"
+
+    - name: create init script for pm2
+      command: su -c "env PATH=$PATH:/usr/bin {{ pm2_path }} startup -u {{ system_user }} --hp {{ system_user_home }}"
+      args:
+        chdir: "{{ codebase_path }}"
+      become: yes
+      environment:
+        PATH: "{{ node_dir }}/bin:{{ ansible_env.PATH }}"
+
+    - name: (re-)start nginx
+      service:
+        name: "{{ item }}"
+        state: restarted
+        enabled: yes
+      with_items:
+        - nginx
+
+    - include: ../tasks/collectd.yaml

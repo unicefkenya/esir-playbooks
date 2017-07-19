@@ -38,6 +38,10 @@ In a nutshell, if you're using debian/ubuntu :- `apt-get install python-dev`
 
 `ansible-playbook -i inventory/esir.ini esir.yaml --vault-password-file [path to password file]`
 
+***Deploying Enketo***
+
+`ansible-playbook -i inventory/enketo.ini enketo.yaml --vault-password-file [path to password file]`
+
 
 [1]: http://www.ansible.com
 [2]: https://pypi.python.org/pypi/pycrypto

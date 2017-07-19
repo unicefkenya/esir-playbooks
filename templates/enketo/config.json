@@ -1,0 +1,74 @@
+{
+    "app name": "Enketo Smart Paper for Ona",
+    "port": "{{ enketo_port }}",
+    "offline enabled": true,
+    "linked form and data server": {
+        "name": "Ona",
+        "server url": "",
+        "api key": "{{ enketo_api_token }}",
+        "authentication": {
+            "managed by enketo": {{ managed_by_enketo }},
+            "allow insecure transport": {{ allow_insecure_transport }},
+            "external login url that sets cookie": "{{ ona_authentication_url }}?return={RETURNURL}"
+        }
+    },
+    "default theme": "formhub",
+    "encryption key": "{{ enketo_api_salt }}",
+    "themes supported": ["formhub", "grid"],
+    "support": {
+        "email": "support@ona.io"
+    },
+    "google": {
+        "analytics": {
+            "ua": "",
+            "domain": ""
+        },
+        "api key": ""
+    },
+    "maps": [ {
+        "name": "street",
+        "tiles": [ "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" ],
+        "attribution": "Map data © <a href=\"http://openstreetmap.org\">OpenStreetMap</a> contributors"
+    },{
+        "name": "satellite",
+        "tiles": [ "https://{s}.tiles.mapbox.com/v3/ona.jfi8jjna/{z}/{x}/{y}.png" ],
+        "attribution": "Map data © <a href=\"http://openstreetmap.org\">OpenStreetMap</a> contributors"
+    },{
+        "name": "terrain",
+        "tiles": [ "https://{s}.tiles.mapbox.com/v3/kll.ptthjjor/{z}/{x}/{y}.png" ],
+        "attribution": "Map data © <a href=\"http://openstreetmap.org\">OpenStreetMap</a> contributors"
+    }],
+    "widgets": [
+        "enketo-widget/note/notewidget",
+        "enketo-widget/select-desktop/selectpicker",
+        "enketo-widget/select-mobile/selectpicker",
+        "enketo-widget/geo/geopicker",
+        "enketo-widget/table/tablewidget",
+        "enketo-widget/radio/radiopicker",
+        "enketo-widget/time/timepicker-extended",
+        "enketo-widget/date/datepicker-extended",
+        "enketo-widget/datetime/datetimepicker-extended",
+        "enketo-widget/mediagrid/mediagridpicker",
+        "enketo-widget/select-likert/likertitem",
+        "enketo-widget/distress/distresspicker",
+        "enketo-widget/file/filepicker",
+        "enketo-widget/horizontal-choices/horizontalchoices"
+    ],
+    "query parameter to pass to submission": "",
+    "redis": {
+        "main": {
+            "host": "127.0.0.1",
+            "port": "6379",
+            "password": null
+        },
+        "cache": {
+            "host": "127.0.0.1",
+            "port": "6379",
+            "password": null
+        }
+    },
+    "logo": {
+        "source": "{{ enketo_logo }}",
+        "href": ""
+    }
+}
