@@ -23,6 +23,8 @@ base_api_key: ""
 helpscout_api_key: ""
 dropbox_data_app_key: ""
 
+jwt_secret_key: "{{ vault_jwt_secret_key }}"
+
 # nginx settings
 client_max_body_size: 100M
 ssl_cert: "esir.crt"
