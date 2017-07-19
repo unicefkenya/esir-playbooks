@@ -100,6 +100,7 @@
         - "{{ venv_path }}"
         - "{{ log_path }}"
         - "/var/run/{{ system_user }}"
+        - "/var/log/celery"
 
     - name: Ensure required checkout directories are present
       file:
@@ -200,6 +201,18 @@
         dest: "{{ codebase_path }}"
         src: "{{ checkout_path }}"
 
+    - name: Copy celeryd-onadata.service
+      template:
+        src: templates/etc/systemd/system/celeryd-generic.service
+        dest: "/etc/systemd/system/celeryd-{{ system_user }}.service"
+        mode: 0644
+
+    - name: Copy celery default script
+      template:
+        src: templates/etc/default/celeryd-generic
+        dest: "/etc/default/celeryd-{{ system_user }}"
+        mode: 0644
+
     - name: Copy onadata.service
       template:
         src: templates/etc/systemd/system/django_uwsgi_generic.service
@@ -238,6 +251,10 @@
     - include: ../tasks/logrotate.yaml logrotate_from=celery logrotate_to=onadata_celery
     - include: ../tasks/collectd.yaml
 
+    - name: Kill Celery Workers Gracefully
+      shell: ps auxww | grep celery | grep -v "grep" | awk '{print $2}' | sudo xargs kill -15
+      ignore_errors: yes
+
     - name: Restart onadata, nginx & rabbitmq
       service:
         name: "{{ item }}"
@@ -247,6 +264,7 @@
         - onadata
         - nginx
         - memcached
+        - "celeryd-{{ system_user }}"
 
     - name: Get previous app deploy listing
       shell: ls -tr1 chdir={{ versioned_path }}
