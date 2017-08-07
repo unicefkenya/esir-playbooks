@@ -1,0 +1,32 @@
+# osx
+.DS_Store
+
+
+# repo
+*.bak
+
+# logs
+*.log
+
+# vim
+*.swp
+*.swo
+
+# vagrant
+.vagrant
+
+# ansible
+*.retry
+
+# key related
+*.cert
+*.pem
+
+# intellij
+*.iml
+.idea
+
+\.*
+files
+
+roles
