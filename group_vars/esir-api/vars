@@ -24,7 +24,7 @@ is_aws: "True"
 
 custom_template: "git@github.com:onaio/onadata-template.git"
 
-allowed_host: ["api.socialreporting.go.ke", "odk.socialreporting.go.ke"]
+allowed_host: ["data.socialreporting.go.ke"]
 
 cors_origin_whitelist: ["socialreporting.go.ke", "data.socialreporting.go.ke", "enketo.socialreporting.go.ke", "localhost:8080"]
 
